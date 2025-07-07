@@ -3,6 +3,7 @@ name = "multi-agent-genai-system"
 version = "0.1.0"
 description = ""
 authors = ["Gemini Architect AI"]
+packages = [{include = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -16,7 +17,7 @@ chromadb = "^0.5.0"
 arxiv = "^2.1.0"
 beautifulsoup4 = "^4.12.3"
 requests = "^2.31.0"
-plantuml = ">=0.3.0,<1.0.0"
+plantuml = "^0.4.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
