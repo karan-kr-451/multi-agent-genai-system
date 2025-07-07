@@ -17,7 +17,7 @@ chromadb = "^0.5.0"
 arxiv = "^2.1.0"
 beautifulsoup4 = "^4.12.3"
 requests = "^2.31.0"
-plantuml = "^0.4.0"
+plantuml = "^0.3.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
