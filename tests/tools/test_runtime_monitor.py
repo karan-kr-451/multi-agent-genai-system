@@ -1,11 +1,11 @@
 import unittest
 import time
 from unittest.mock import patch, MagicMock
-from src.tools.runtime_monitor_tool import RuntimeMonitor, ResourceMetrics
+from src.tools.runtime_monitor_tool import RuntimeMonitorTool, ResourceMetrics
 
 class TestRuntimeMonitor(unittest.TestCase):
     def setUp(self):
-        self.monitor = RuntimeMonitor(sampling_interval=0.1)
+        self.monitor = RuntimeMonitorTool()
 
     def tearDown(self):
         if self.monitor._is_monitoring:

@@ -1,10 +1,11 @@
-from langchain.tools import BaseTool
+from typing import ClassVar
+from langchain_community.tools import BaseTool
 from PyPDF2 import PdfReader
 import os
 
 class PDFReaderTool(BaseTool):
-    name = "PDFReaderTool"
-    description = "Reads a PDF file from the specified path and extracts its text content. Input is the absolute file path to the PDF."
+    name: ClassVar[str] = "PDFReaderTool"
+    description: ClassVar[str] = "Extract text content from PDF files. Input should be a path to a PDF file."
 
     def _run(self, file_path: str):
         try:

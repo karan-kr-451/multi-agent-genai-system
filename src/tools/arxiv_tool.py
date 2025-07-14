@@ -1,31 +1,31 @@
 import arxiv
-from langchain.tools import BaseTool
-import json
+from typing import ClassVar
+from langchain_community.tools import BaseTool
 
 class ArxivTool(BaseTool):
-    name = "ArxivSearch"
-    description = "Searches arXiv for academic papers on a given topic."
+    name: ClassVar[str] = "ArxivTool"
+    description: ClassVar[str] = "Search arxiv papers. Input should be a search query string."
 
-    def _run(self, query: str):
+    def _run(self, query: str) -> str:
+        client = arxiv.Client()
+        search = arxiv.Search(query=query, max_results=5)
+
         try:
-            search = arxiv.Search(
-                query=query,
-                max_results=3,
-                sort_by=arxiv.SortCriterion.Relevance
-            )
-            results = []
-            for result in search.results():
-                results.append({
-                    "title": result.title,
-                    "summary": result.summary,
-                    "url": result.pdf_url
-                })
-            return json.dumps(results)
+            results = list(client.results(search))
+            if not results:
+                return "No papers found matching the query."
+
+            output = []
+            for paper in results:
+                output.append(f"Title: {paper.title}")
+                output.append(f"Authors: {', '.join(author.name for author in paper.authors)}")
+                output.append(f"Summary: {paper.summary[:300]}...")
+                output.append(f"URL: {paper.pdf_url}")
+                output.append("-" * 80)
+
+            return "\n".join(output)
         except Exception as e:
-            return f"An error occurred: {e}"
+            return f"Error searching arxiv: {str(e)}"
 
-    async def _arun(self, query: str):
+    async def _arun(self, query: str) -> str:
         raise NotImplementedError("ArxivTool does not support async")
-
-# Instantiate the tool
-arxiv_tool = ArxivTool()

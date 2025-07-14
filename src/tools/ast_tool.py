@@ -1,9 +1,10 @@
 import ast
-from langchain.tools import BaseTool
+from typing import ClassVar
+from langchain_community.tools import BaseTool
 
 class ASTAnalysisTool(BaseTool):
-    name = "ASTAnalysisTool"
-    description = "Analyzes a Python code string using Abstract Syntax Trees (AST) to find functions, classes, and imports. Input is a JSON object with 'action' and 'code'. Actions: 'find_functions', 'find_classes', 'find_imports'."
+    name: ClassVar[str] = "ASTAnalysisTool"
+    description: ClassVar[str] = "Analyze Python code structure using AST. Input should be Python code as a string."
 
     def _run(self, tool_input: str):
         import json

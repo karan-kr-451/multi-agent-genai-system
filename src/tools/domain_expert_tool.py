@@ -1,9 +1,9 @@
-from langchain.tools import BaseTool
-import json
+from typing import ClassVar
+from langchain_community.tools import BaseTool
 
 class DomainExpertTool(BaseTool):
-    name = "DomainExpertTool"
-    description = "Provides curated knowledge on specific domains or technologies. Input is a keyword or topic (e.g., 'FinTech security', 'e-commerce scalability')."
+    name: ClassVar[str] = "DomainExpertTool"
+    description: ClassVar[str] = "Get domain-specific knowledge and best practices. Input should be a question about a specific domain."
 
     def _run(self, query: str):
         # Simulate a knowledge base lookup

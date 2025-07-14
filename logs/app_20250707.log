@@ -1,0 +1,8 @@
+2025-07-07 22:14:35,151 [INFO] root (logging_config.py:101): Logging configuration loaded successfully
+2025-07-07 22:14:35,261 [ERROR] mcp_server (main.py:60): Failed to connect to Redis: Error 111 connecting to localhost:6379. Connection refused.
+2025-07-07 22:20:51,627 [INFO] root (logging_config.py:101): Logging configuration loaded successfully
+2025-07-07 22:20:51,760 [ERROR] mcp_server (main.py:60): Failed to connect to Redis: Error 111 connecting to localhost:6379. Connection refused.
+2025-07-07 22:32:46,305 [INFO] root (logging_config.py:101): Logging configuration loaded successfully
+2025-07-07 22:32:46,420 [ERROR] mcp_server (main.py:60): Failed to connect to Redis: Error 111 connecting to localhost:6379. Connection refused.
+2025-07-07 23:47:05,536 [INFO] root (logging_config.py:101): Logging configuration loaded successfully
+2025-07-07 23:47:05,552 [ERROR] mcp_server (main.py:60): Failed to connect to Redis: Error 111 connecting to localhost:6379. Connection refused.

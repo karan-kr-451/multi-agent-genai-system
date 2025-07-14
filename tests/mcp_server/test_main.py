@@ -7,6 +7,16 @@ import logging
 from src.mcp_server.main import app, redis_client
 from src.utils.config import Settings
 
+# Use fakeredis server for testing
+redis_server = fakeredis.FakeServer()
+fake_redis = fakeredis.FakeStrictRedis(server=redis_server)
+
+# Patch the redis client
+@pytest.fixture(autouse=True)
+def mock_redis():
+    with patch('src.mcp_server.main.redis_client', fake_redis):
+        yield fake_redis
+
 @pytest.fixture
 def mock_settings():
     with patch('src.mcp_server.main.settings') as mock:
@@ -16,22 +26,26 @@ def mock_settings():
         yield mock
 
 @pytest.fixture
-def mock_redis():
-    with patch('src.mcp_server.main.redis_client') as mock:
-        mock.return_value = fakeredis.FakeRedis()
-        yield mock
-
-@pytest.fixture
 def mock_background_tasks():
     with patch('fastapi.BackgroundTasks.add_task') as mock:
         yield mock
 
 @pytest.fixture
-def test_client(mock_settings):
+def client():
     return TestClient(app)
 
-def test_start_project_with_auth(test_client, mock_redis, mock_background_tasks):
-    response = test_client.post(
+def test_health_check(client):
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "healthy"}
+
+def test_redis_operations(mock_redis):
+    # Test basic Redis operations
+    mock_redis.set("test_key", "test_value")
+    assert mock_redis.get("test_key") == b"test_value"
+
+def test_start_project_with_auth(client, mock_background_tasks):
+    response = client.post(
         "/start_project",
         json={
             "prompt": "Build a todo app",
@@ -46,8 +60,8 @@ def test_start_project_with_auth(test_client, mock_redis, mock_background_tasks)
     assert "message" in response.json()
     mock_background_tasks.assert_called_once()
 
-def test_start_project_without_auth(test_client, mock_redis):
-    response = test_client.post(
+def test_start_project_without_auth(client, mock_redis):
+    response = client.post(
         "/start_project",
         json={
             "prompt": "Build a todo app",
@@ -59,8 +73,8 @@ def test_start_project_without_auth(test_client, mock_redis):
     assert response.status_code == 401
     assert "API key is required" in response.json()["detail"]
 
-def test_start_project_invalid_auth(test_client, mock_redis):
-    response = test_client.post(
+def test_start_project_invalid_auth(client, mock_redis):
+    response = client.post(
         "/start_project",
         json={
             "prompt": "Build a todo app",
@@ -73,9 +87,9 @@ def test_start_project_invalid_auth(test_client, mock_redis):
     assert response.status_code == 401
     assert "Invalid API key" in response.json()["detail"]
 
-def test_request_logging(test_client, mock_redis, caplog):
+def test_request_logging(client, mock_redis, caplog):
     with caplog.at_level(logging.INFO):
-        test_client.get(
+        client.get(
             "/status/123",
             headers={"X-API-Key": "test-key"}
         )
@@ -84,19 +98,19 @@ def test_request_logging(test_client, mock_redis, caplog):
         assert any("Request started: GET /status/123" in record.message for record in caplog.records)
         assert any("Request completed: GET /status/123" in record.message for record in caplog.records)
 
-def test_error_handling(test_client, mock_redis):
+def test_error_handling(client, mock_redis):
     # Simulate a server error
     mock_redis.get.side_effect = Exception("Redis error")
     
-    response = test_client.get(
+    response = client.get(
         "/status/123",
         headers={"X-API-Key": "test-key"}
     )
     assert response.status_code == 500
     assert "internal server error" in response.json()["detail"].lower()
 
-def test_cors_headers(test_client):
-    response = test_client.options(
+def test_cors_headers(client):
+    response = client.options(
         "/start_project",
         headers={
             "Origin": "http://localhost:3000",
@@ -106,28 +120,28 @@ def test_cors_headers(test_client):
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
 
-def test_select_idea_not_found(test_client, mock_redis):
-    response = test_client.post(
+def test_select_idea_not_found(client, mock_redis):
+    response = client.post(
         "/jobs/nonexistent/select_idea?idea_index=0",
         headers={"X-API-Key": "test-key"}
     )
     assert response.status_code == 404
 
-def test_select_idea_wrong_state(test_client, mock_redis):
+def test_select_idea_wrong_state(client, mock_redis):
     job_data = {
         "state": "ANALYZING",
         "context": {}
     }
     mock_redis.get.return_value = json.dumps(job_data)
     
-    response = test_client.post(
+    response = client.post(
         "/jobs/123/select_idea?idea_index=0",
         headers={"X-API-Key": "test-key"}
     )
     assert response.status_code == 400
     assert "not in IDEA_SELECTION state" in response.json()["detail"]
 
-def test_select_idea_success(test_client, mock_redis, mock_background_tasks):
+def test_select_idea_success(client, mock_redis, mock_background_tasks):
     job_data = {
         "state": "IDEA_SELECTION",
         "context": {
@@ -138,14 +152,14 @@ def test_select_idea_success(test_client, mock_redis, mock_background_tasks):
     }
     mock_redis.get.return_value = json.dumps(job_data)
     
-    response = test_client.post(
+    response = client.post(
         "/jobs/123/select_idea?idea_index=0",
         headers={"X-API-Key": "test-key"}
     )
     assert response.status_code == 200
     assert "Idea selected" in response.json()["message"]
 
-def test_get_status(test_client, mock_redis):
+def test_get_status(client, mock_redis):
     job_data = {
         "job_id": "123",
         "state": "COMPLETED",
@@ -153,16 +167,16 @@ def test_get_status(test_client, mock_redis):
     }
     mock_redis.get.return_value = json.dumps(job_data)
     
-    response = test_client.get(
+    response = client.get(
         "/status/123",
         headers={"X-API-Key": "test-key"}
     )
     assert response.status_code == 200
     assert response.json()["state"] == "COMPLETED"
 
-def test_get_status_not_found(test_client, mock_redis):
+def test_get_status_not_found(client, mock_redis):
     mock_redis.get.return_value = None
-    response = test_client.get(
+    response = client.get(
         "/status/nonexistent",
         headers={"X-API-Key": "test-key"}
     )
@@ -189,9 +203,9 @@ async def test_workflow_manager():
             job_data["context"]
         )
 
-def test_sensitive_data_logging(test_client, mock_redis, caplog):
+def test_sensitive_data_logging(client, mock_redis, caplog):
     with caplog.at_level(logging.INFO):
-        test_client.post(
+        client.post(
             "/start_project",
             json={
                 "prompt": "Build a todo app",

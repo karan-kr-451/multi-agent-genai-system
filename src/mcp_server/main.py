@@ -48,6 +48,7 @@ app.add_middleware(
 )
 
 # Initialize Redis with configuration
+redis_client = None
 try:
     redis_client = Redis.from_url(
         settings.get_redis_url(),
@@ -58,7 +59,6 @@ try:
     logger.info("Successfully connected to Redis at %s", settings.REDIS_HOST)
 except Exception as e:
     logger.error("Failed to connect to Redis: %s", str(e))
-    raise
 
 # Dynamic Agent Loading
 AGENT_MAPPING = {}

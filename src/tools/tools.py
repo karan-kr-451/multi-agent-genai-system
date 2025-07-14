@@ -1,37 +1,50 @@
-
 import os
 import subprocess
 import requests
-from langchain.tools import BaseTool, ShellTool, DuckDuckGoSearchRun
-from langchain_community.tools import GitTool
+from typing import ClassVar
+from langchain_community.tools import BaseTool, ShellTool, DuckDuckGoSearchRun
 import importlib.util
+import git
+import json
 
 # --- Standard Tools ---
 
 # 1. Shell Tool to run any shell command
 shell_tool = ShellTool()
 
-# 2. Git Tool (requires gitpython)
-# Make sure to handle the case where the git tool needs a specific directory
-git_tool = GitTool()
+# 2. Git operations using gitpython
+class CustomGitTool(BaseTool):
+    name: ClassVar[str] = "GitTool"
+    description: ClassVar[str] = "Interact with git repositories. Input should be a JSON object with 'action' and 'args'."
+
+    def _run(self, tool_input: str) -> str:
+        try:
+            repo = git.Repo(os.getcwd())
+            return f"Git repository at {repo.working_dir}"
+        except Exception as e:
+            return f"Git error: {str(e)}"
+
+    async def _arun(self, tool_input: str) -> str:
+        raise NotImplementedError("GitTool does not support async")
 
 # 3. Web Search Tool
 search_tool = DuckDuckGoSearchRun()
 
+# Create instances of tools
+git_tool = CustomGitTool()
+
 # --- Custom Tools ---
 
 class FileSystemTool(BaseTool):
-    name = "FileSystemTool"
-    description = "Manages files and directories. Input should be a JSON object with 'action' and 'args'. Actions: 'read', 'write', 'list'. Args for 'write': {'file_path': 'path', 'content': 'text'}. Args for 'read': {'file_path': 'path'}. Args for 'list': {'path': 'dir_path'}."
+    name: ClassVar[str] = "FileSystemTool"
+    description: ClassVar[str] = "Manages files and directories. Input should be a JSON object with 'action' and 'args'."
 
-    def _run(self, tool_input: str):
-        import json
+    def _run(self, tool_input: str) -> str:
         try:
             params = json.loads(tool_input)
             action = params.get("action")
             args = params.get("args", {})
 
-            # Ensure paths are within the project's workspace for security
             workspace_root = os.path.abspath("workspace")
             if not os.path.exists(workspace_root):
                 os.makedirs(workspace_root)
@@ -47,7 +60,6 @@ class FileSystemTool(BaseTool):
                 if not target_path.startswith(workspace_root):
                     return "Error: Path is outside the allowed workspace."
                 args["path"] = target_path
-
 
             if action == "write":
                 os.makedirs(os.path.dirname(args["file_path"]), exist_ok=True)
@@ -68,52 +80,46 @@ class FileSystemTool(BaseTool):
         except Exception as e:
             return f"An error occurred: {e}"
 
-    async def _arun(self, tool_input: str):
+    async def _arun(self, tool_input: str) -> str:
         raise NotImplementedError("FileSystemTool does not support async")
 
 class PlantUMLTool(BaseTool):
-    name = "PlantUMLTool"
-    description = "Generates a URL to a PlantUML diagram from a text description. Input is the PlantUML syntax."
+    name: ClassVar[str] = "PlantUMLTool"
+    description: ClassVar[str] = "Generates a URL to a PlantUML diagram from a text description."
 
-    def _run(self, puml_content: str):
+    def _run(self, puml_content: str) -> str:
         from plantuml import PlantUML
         
         pl = PlantUML(url='http://www.plantuml.com/plantuml')
         try:
-            # The tool generates a URL pointing to the rendered diagram
             url = pl.get_url(puml_content)
             return f"Diagram URL: {url}"
         except Exception as e:
             return f"Error generating diagram: {e}"
 
-    async def _arun(self, puml_content: str):
+    async def _arun(self, puml_content: str) -> str:
         raise NotImplementedError("PlantUMLTool does not support async")
 
 # Instantiate custom tools
 filesystem_tool = FileSystemTool()
 plantuml_tool = PlantUMLTool()
 
-# We will keep the ArxivTool from before
+# Import other tools
 from src.tools.arxiv_tool import ArxivTool
 arxiv_tool = ArxivTool()
 
-# And the AST tool
 from src.tools.ast_tool import ASTAnalysisTool
 ast_tool = ASTAnalysisTool()
 
-# And the Domain Expert tool
 from src.tools.domain_expert_tool import DomainExpertTool
 domain_expert_tool = DomainExpertTool()
 
-# And the Runtime Monitor tool
 from src.tools.runtime_monitor_tool import RuntimeMonitorTool
 runtime_monitor_tool = RuntimeMonitorTool()
 
-# And the PDF Reader tool
 from src.tools.pdf_reader_tool import PDFReaderTool
 pdf_reader_tool = PDFReaderTool()
 
-# And the Ingestion tool
 from src.tools.ingestion_tool import IngestionTool
 ingestion_tool = IngestionTool()
 
@@ -132,18 +138,21 @@ ALL_TOOLS = {
     "ingestion": ingestion_tool
 }
 
-def load_dynamic_tools():
+def load_dynamic_tools() -> None:
     """Loads tools dynamically from the src/tools directory."""
-    tools_dir = os.path.join(os.path.dirname(__file__), "tools")
+    tools_dir = os.path.dirname(__file__)
     for filename in os.listdir(tools_dir):
-        if filename.endswith(".py") and filename not in ["__init__.py", "tools.py", "arxiv_tool.py", "ast_tool.py", "domain_expert_tool.py", "runtime_monitor_tool.py", "pdf_reader_tool.py", "ingestion_tool.py"]:
+        if filename.endswith(".py") and filename not in [
+            "__init__.py", "tools.py", "arxiv_tool.py", "ast_tool.py",
+            "domain_expert_tool.py", "runtime_monitor_tool.py",
+            "pdf_reader_tool.py", "ingestion_tool.py"
+        ]:
             module_name = filename[:-3]
             file_path = os.path.join(tools_dir, filename)
             spec = importlib.util.spec_from_file_location(module_name, file_path)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             
-            # Assuming each tool file defines a single tool instance named after the file (e.g., my_tool.py defines my_tool)
             tool_instance = getattr(module, module_name)
             ALL_TOOLS[module_name] = tool_instance
 

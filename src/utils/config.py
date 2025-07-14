@@ -1,44 +1,47 @@
 import os
 from typing import Optional
-from pydantic import BaseSettings, Field, validator
+from pydantic import Field, field_validator, ConfigDict
+from pydantic_settings import BaseSettings
 import logging
 
 logger = logging.getLogger(__name__)
 
 class Settings(BaseSettings):
     # Redis Configuration
-    REDIS_HOST: str = Field(default="localhost", env="REDIS_HOST")
-    REDIS_PORT: int = Field(default=6379, env="REDIS_PORT")
-    REDIS_PASSWORD: Optional[str] = Field(default=None, env="REDIS_PASSWORD")
+    REDIS_HOST: str = Field(default="localhost", description="Redis host address")
+    REDIS_PORT: int = Field(default=6379, description="Redis port number")
+    REDIS_PASSWORD: Optional[str] = Field(default=None, description="Redis password")
     
     # Ollama Configuration
-    OLLAMA_HOST: str = Field(default="http://localhost:11434", env="OLLAMA_HOST")
-    OLLAMA_MODEL: str = Field(default="llama3", env="OLLAMA_MODEL")
+    OLLAMA_HOST: str = Field(default="http://localhost:11434", description="Ollama host URL")
+    OLLAMA_MODEL: str = Field(default="llama3", description="Ollama model name")
     
     # Application Configuration
-    LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")
-    WORKSPACE_DIR: str = Field(default="workspace", env="WORKSPACE_DIR")
-    MAX_RETRIES: int = Field(default=3, env="MAX_RETRIES")
-    POLLING_INTERVAL: int = Field(default=2000, env="POLLING_INTERVAL")  # milliseconds
+    LOG_LEVEL: str = Field(default="INFO", description="Logging level")
+    WORKSPACE_DIR: str = Field(default="workspace", description="Workspace directory path")
+    MAX_RETRIES: int = Field(default=3, description="Maximum number of retries")
+    POLLING_INTERVAL: int = Field(default=2000, description="Polling interval in milliseconds")
     
     # API Configuration
     CORS_ORIGINS: list[str] = Field(
         default=["*"],
-        env="CORS_ORIGINS"
+        description="CORS allowed origins"
     )
     
     # Security Configuration
-    API_KEY: Optional[str] = Field(default=None, env="API_KEY")
-    ENABLE_AUTH: bool = Field(default=False, env="ENABLE_AUTH")
+    API_KEY: Optional[str] = Field(default=None, description="API key for authentication")
+    ENABLE_AUTH: bool = Field(default=False, description="Enable authentication")
     
-    @validator("LOG_LEVEL")
+    @field_validator("LOG_LEVEL")
+    @classmethod
     def validate_log_level(cls, v: str) -> str:
         valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
         if v.upper() not in valid_levels:
             raise ValueError(f"Invalid log level. Must be one of {valid_levels}")
         return v.upper()
     
-    @validator("CORS_ORIGINS", pre=True)
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
     def parse_cors_origins(cls, v):
         if isinstance(v, str):
             if v == "*":
@@ -52,9 +55,7 @@ class Settings(BaseSettings):
             return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}"
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}"
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = ConfigDict(env_file=".env", case_sensitive=True)
 
 def load_settings() -> Settings:
     """

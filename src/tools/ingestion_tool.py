@@ -1,13 +1,14 @@
+from typing import ClassVar, Dict, Any
+from langchain_community.tools import BaseTool
+import json
 import os
 import shutil
-from langchain.tools import BaseTool
 
 class IngestionTool(BaseTool):
-    name = "IngestionTool"
-    description = "Copies a file from a specified absolute source path on the user's system to the project workspace. Input is a JSON object with 'source_path' (absolute path) and 'destination_filename' (filename in workspace)."
+    name: ClassVar[str] = "IngestionTool"
+    description: ClassVar[str] = "Ingest and process data from various sources. Input should be a JSON object with source type and data."
 
     def _run(self, tool_input: str):
-        import json
         try:
             params = json.loads(tool_input)
             source_path = params.get("source_path")
